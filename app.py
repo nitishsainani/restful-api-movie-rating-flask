@@ -129,7 +129,7 @@ def add_rating():
         if movie.created_by == user_id:
             abort(403, {'message': 'You cannot rate your movie'})
 
-        if session.query(Rating).filter(Rating.user_id == user_id).all():
+        if session.query(Rating).filter(Rating.user_id == user_id).filter(Rating.movie_id == movie_id).all():
             abort(401, {'message': 'Rating cannot be given twice'})
 
         rating = Rating(value=value, user_id=user_id, movie_id=movie_id)
@@ -191,13 +191,32 @@ def delete_rating(rating_id):
 
 def schedule_average_rating_service():
     def job():
-        print("hello")
+        movies = session.query(Movie).all()
+        ratings = session.query(Rating).all()
 
-    schedule.every().day.at("00:03").do(job)
-    i = 1
+        ratings_map = {}
+        for rating in ratings:
+            movie_id = rating.movie_id
+            if movie_id in ratings_map:
+                ratings_map[movie_id].append(rating.value)
+            else:
+                ratings_map[movie_id] = [rating.value]
+
+        movie_avg_rating_map = {}
+        for movie in movies:
+            movie_id = movie.id
+            if movie_id in ratings_map:
+                list_rating = ratings_map[movie_id]
+                movie_avg_rating_map[movie.title] = sum(list_rating) / len(list_rating)
+
+        for movie in movie_avg_rating_map:
+            print(movie, movie_avg_rating_map[movie])
+
+    schedule.every().day.at("21:00").do(job)
+
     while True:
         schedule.run_pending()
-        time.sleep(2)
+        time.sleep(1)
 
 
 if __name__ == '__main__':
